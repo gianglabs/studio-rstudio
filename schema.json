@@ -14,18 +14,20 @@
         "image": {
           "type": "string",
           "default": "",
-          "description": "S3 path to pre-cached Docker image tar (e.g. s3://omicslab/data/images/rstudio-4.4.2.tar). If empty, pulls from Docker Hub.",
+          "format": "file-path",
+          "description": "Path to pre-cached Docker image tar.zst file. If empty, pulls from Docker Hub.",
           "fa_icon": "fas fa-database"
         },
         "snapshot": {
           "type": "boolean",
           "default": false,
-          "description": "If true, save the running container state as a compressed tar file when the job stops.",
+          "description": "If true, save the running container state as a zstd-compressed tar file when the job stops.",
           "fa_icon": "fas fa-camera"
         },
         "outdir": {
           "type": "string",
-          "default": "data/images/podman/rstudio",
+          "default": "s3://${workspace_id}/data/images/podman/rstudio",
+          "format": "directory-path",
           "description": "S3 path to save snapshot tar files.",
           "fa_icon": "fas fa-folder"
         }

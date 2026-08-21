@@ -14,7 +14,7 @@
   "r_version": "4.4.2",
   "image": "",
   "snapshot": false,
-  "outdir": "data/images/podman/rstudio",
+  "outdir": "s3://workspace-bucket/data/images/podman/rstudio",
   "file": "workspace/test.txt",
   "dir": "workspace",
   "integer": 1,

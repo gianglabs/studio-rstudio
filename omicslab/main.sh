@@ -10,10 +10,8 @@ CONTAINER_NAME="rstudio-server"
 TOOL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$TOOL_DIR"
 
-# Set-up temporary paths under $HOME so they exist both on the host and, via
-# the $HOME:/home/rstudio bind, inside the container.
 RSTUDIO_WORKSPACE="$HOME/rstudio-workspace"
-mkdir -p $RSTUDIO_WORKSPACE/{run,var-lib-rstudio-server,local-share-rstudio}
+mkdir -p "$RSTUDIO_WORKSPACE"
 
 eval "$(pixi shell-hook)"
 
@@ -40,7 +38,6 @@ echo "Using Python binary: $PY_BIN"
 # by `podman commit` (snapshot).
 CONTAINER_R_LIBS="/home/rstudio/R/library"
 CONTAINER_PY_SITE="/home/rstudio/.local/lib/python3.12/site-packages"
-mkdir -p "$RSTUDIO_WORKSPACE/$CONTAINER_R_LIBS" "$RSTUDIO_WORKSPACE/$CONTAINER_PY_SITE"
 
 # --- Image Loading ---
 # If image param is set and points to a downloaded file, load it via podman.
@@ -74,40 +71,35 @@ fi
 echo "Starting rstudio service on port ${PORT:-6868} ..."
 
 # --- Snapshot on Stop ---
-# If snapshot=true, commit the container to a new image and save as compressed tar on exit.
 _snapshot_cleanup() {
     local exit_code=$?
     if [ "${snapshot:-false}" = "true" ] || [ "${snapshot:-false}" = "True" ]; then
-        echo "Snapshot enabled. Saving container state..."
+        echo "Snapshot enabled. Saving container state as zstd..."
         SNAPSHOT_DIR="$HOME/rstudio-snapshots"
         mkdir -p "$SNAPSHOT_DIR"
 
         TIMESTAMP=$(date +%Y%m%d%H%M%S)
-        SNAPSHOT_TAR="$SNAPSHOT_DIR/rstudio-${job_id:-unknown}-${TIMESTAMP}.tar"
-        SNAPSHOT_ZSTD="$SNAPSHOT_TAR.zst"
+        SNAPSHOT_ZSTD="$SNAPSHOT_DIR/rstudio-${job_id:-unknown}-${TIMESTAMP}.tar.zst"
 
         # Commit the running container to a new image
         podman commit "$CONTAINER_NAME" "rstudio-snapshot:${TIMESTAMP}" 2>/dev/null || true
 
-        # Save with zstd compression (faster + better compression than gzip)
+        # Save with zstd compression
         echo "Saving snapshot to: $SNAPSHOT_ZSTD"
-        podman save "$DOCKER_IMAGE" 2>/dev/null | zstd -T0 -o "$SNAPSHOT_ZSTD" 2>/dev/null || \
-            podman save -o "$SNAPSHOT_TAR" "$DOCKER_IMAGE" 2>/dev/null
+        podman save "$DOCKER_IMAGE" 2>/dev/null | zstd -T0 -o "$SNAPSHOT_ZSTD" 2>/dev/null || true
 
         # Upload to S3 if outdir is set
         if [ -n "${outdir:-}" ]; then
-            S3_UPLOAD_PATH="s3://${bucket_name:-genomics}/${outdir}/${job_id:-unknown}/"
+            S3_UPLOAD_PATH="${outdir}/${job_id:-unknown}/"
             echo "Uploading snapshot to: $S3_UPLOAD_PATH"
             if command -v aws &>/dev/null; then
                 aws s3 cp "$SNAPSHOT_ZSTD" "$S3_UPLOAD_PATH" \
-                    --endpoint-url "${AWS_ENDPOINT_URL:-}" 2>/dev/null || \
-                aws s3 cp "$SNAPSHOT_TAR" "$S3_UPLOAD_PATH" \
                     --endpoint-url "${AWS_ENDPOINT_URL:-}" 2>/dev/null || true
             fi
         fi
 
         # Clean up local snapshot after upload
-        rm -f "$SNAPSHOT_TAR" "$SNAPSHOT_ZSTD"
+        rm -f "$SNAPSHOT_ZSTD"
         echo "Snapshot complete."
     fi
     return $exit_code
@@ -121,12 +113,7 @@ trap _snapshot_cleanup EXIT
 exec script -q -c "podman run --rm -i \
     --name $CONTAINER_NAME \
     -p ${PORT:-6868}:${PORT:-6868} \
-    -v $RSTUDIO_WORKSPACE/run:/run \
-    -v $RSTUDIO_WORKSPACE/var-lib-rstudio-server:/var/lib/rstudio-server \
-    -v $TOOL_DIR/database.conf:/etc/rstudio/database.conf \
-    -v $TOOL_DIR/rsession.conf:/etc/rstudio/rsession.conf \
-    -v $RSTUDIO_WORKSPACE/local-share-rstudio:/home/rstudio/.local/share/rstudio \
-    -v $HOME:/home/rstudio \
+    -v $RSTUDIO_WORKSPACE:/home/rstudio \
     -v $ENV_DIR:/opt/toolenv \
     -e RSTUDIO_WHICH_R=/opt/toolenv/bin/R \
     -e RETICULATE_PYTHON=/opt/toolenv/bin/python \
