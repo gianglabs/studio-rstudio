@@ -29,22 +29,20 @@ RSTUDIO_HOME=$RSTUDIO_WORKSPACE/packages/rstudio
 RSTUDIO_CONFIG=$RSTUDIO_WORKSPACE/config
 mkdir -p $RSTUDIO_CONFIG
 
-# rserver runs INSIDE the container, where the host path /home/river/... does
-# not exist. $HOME is mounted at /home/rstudio, so translate every $HOME-relative
-# path (R/Python binaries, working dir) to the in-container mount point.
-CONTAINER_HOME="/home/rstudio"
-cpath() { case "$1" in "$HOME"*) echo "${CONTAINER_HOME}${1#$HOME}";; *) echo "$1";; esac; }
-CONTAINER_R_BIN=$(cpath "$R_BIN")
-CONTAINER_PY_BIN=$(cpath "$PY_BIN")
-CONTAINER_LD=$(cpath "${CONDA_PREFIX}/lib")
+# rserver runs INSIDE the container, where host paths like /home/river/... do
+# not exist. $HOME is mounted at /home/rstudio, but the tool's pixi env may
+# live outside $HOME's prefix, so instead we bind the pixi env at a FIXED
+# in-container path (/opt/toolenv) and point rserver at that. This avoids any
+# fragile host->container path translation.
+ENV_DIR="$(cd "$(dirname "$(dirname "$R_BIN")")" && pwd)"
 
 # RStudio Server runs fine as a non-root user. We only add --server-daemonize=0
 # so rserver stays in the FOREGROUND instead of forking to the background; that
 # keeps the studio job "running" for its whole lifetime. `script` provides the
 # PTY rserver expects.
 #
-# The container working directory (--pwd) and --server-working-dir must reference
-# a path that exists INSIDE the container (/home/rstudio), not the host path.
+# The container working directory (--pwd) and --server-working-dir reference
+# /home/rstudio, which is the in-container mount of $HOME.
 exec script -q -c "singularity run --pwd /home/rstudio \
         --bind $RSTUDIO_WORKSPACE/run:/run \
         --bind $RSTUDIO_WORKSPACE/var-lib-rstudio-server:/var/lib/rstudio-server \
@@ -53,15 +51,16 @@ exec script -q -c "singularity run --pwd /home/rstudio \
         --bind $TOOL_DIR/rsession.conf:/etc/rstudio/rsession.conf \
         --bind $RSTUDIO_WORKSPACE/local-share-rstudio:/home/rstudio/.local/share/rstudio \
         --bind $HOME:/home/rstudio \
-        --env RSTUDIO_WHICH_R=$CONTAINER_R_BIN \
-        --env RETICULATE_PYTHON=$CONTAINER_PY_BIN \
+        --bind $ENV_DIR:/opt/toolenv \
+        --env RSTUDIO_WHICH_R=/opt/toolenv/bin/R \
+        --env RETICULATE_PYTHON=/opt/toolenv/bin/python \
         $TOOL_DIR/$CONTAINER \
         rserver \
                 --www-address=0.0.0.0 \
                 --www-port=${PORT:-6868} \
                 --server-working-dir /home/rstudio \
-                --rsession-which-r=$CONTAINER_R_BIN \
-                --rsession-ld-library-path=$CONTAINER_LD \
+                --rsession-which-r=/opt/toolenv/bin/R \
+                --rsession-ld-library-path=/opt/toolenv/lib \
                 --auth-none=1 \
                 --server-user $USER \
                 --server-daemonize=0"
