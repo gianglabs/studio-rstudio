@@ -51,5 +51,5 @@ if [[ "$git" == *"nf-"* ]]; then
         -with-report "s3://$bucket_name/$outdir/job_id/report.html" \
         -resume
 else
-    bash $BASEDIR/river/main.sh
+    bash $BASEDIR/omicslab/main.sh
 fi

@@ -3,7 +3,7 @@ USER=$(whoami)
 TMPDIR=${TMPDIR:-$RIVER_HOME/tmp}
 CONTAINER="rstudio-4.4.2.sif"
 
-cd analysis/river
+cd analysis/omicslab
 # Set-up temporary paths
 RSTUDIO_WORKSPACE="./workspace"
 mkdir -p $RSTUDIO_WORKSPACE/{run,var-lib-rstudio-server,local-share-rstudio}
@@ -21,11 +21,16 @@ echo "Using R binary: $R_BIN"
 echo "Using Python binary: $PY_BIN"
 echo "Starting rstudio service on port $PORT ..."
 # prepare database and session
-RSTUDIO_HOME=$RSTUDIO_WORKSPACE/packages/rstudio 
+RSTUDIO_HOME=$RSTUDIO_WORKSPACE/packages/rstudio
 RSTUDIO_CONFIG=$RSTUDIO_WORKSPACE/config
 mkdir -p $RSTUDIO_CONFIG
 
-script -q -c "singularity run \
+# Run rserver in the foreground (--server-daemonize=0) so the studio job
+# stays "running" for its whole lifetime instead of the launcher exiting
+# immediately (rserver daemonizes by default). Replacing the shell with
+# singularity via exec lets the platform's SIGTERM reach the server directly
+# on terminate, instead of leaving an orphaned detached process behind.
+exec singularity run \
         --bind $RSTUDIO_WORKSPACE/run:/run \
         --bind $RSTUDIO_WORKSPACE/var-lib-rstudio-server:/var/lib/rstudio-server \
         --bind /sys/fs/cgroup/:/sys/fs/cgroup/:ro \
@@ -42,5 +47,6 @@ script -q -c "singularity run \
                 --server-working-dir $HOME \
                 --rsession-which-r=$R_BIN \
                 --rsession-ld-library-path=$CONDA_PREFIX/lib \
-        --auth-none=1 \
-        --server-user $USER"
+                --auth-none=1 \
+                --server-user $USER \
+                --server-daemonize=0
