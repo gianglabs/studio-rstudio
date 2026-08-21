@@ -11,11 +11,13 @@
   "AWS_SECRET_ACCESS_KEY": "invalid",
   "AWS_REGION_NAME": "invalid",
   "AWS_ENDPOINT_URL": "invalid",
+  "image": "",
+  "snapshot": false,
+  "outdir": "data/images/podman/rstudio",
   "file": "workspace/test.txt",
   "dir": "workspace",
   "integer": 1,
   "number": 0.3,
   "string": "string1",
-  "boolean": true,
-  "outdir": "batch-template-analysis"
+  "boolean": true
 }

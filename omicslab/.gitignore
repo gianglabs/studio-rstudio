@@ -1,3 +1,6 @@
 workspace
 *.sif
+*.tar
+*.tar.zst
+*.zst
 typescript

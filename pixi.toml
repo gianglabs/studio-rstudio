@@ -7,6 +7,8 @@ version = "0.1.0"
 [tasks]
 
 [dependencies]
-r-base = { version = "4.4.2.*", channel = "conda-forge" }
+r-base = { version = "4.6.1.*", channel = "conda-forge" }
 python = { version = "3.12.*", channel = "conda-forge" }
-singularity = { version = "3.8.6.*", channel = "conda-forge" }
+podman = { version = "5.8.3.*", channel = "conda-forge" }
+zstd = { version = "1.5.7.*", channel = "conda-forge" }
+pigz = { version = "2.8.*", channel = "conda-forge" }
