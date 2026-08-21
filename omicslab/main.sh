@@ -1,5 +1,5 @@
 #!/bin/bash
-USER=$(whoami)
+USER=${USER:-root}
 TMPDIR=${TMPDIR:-$RIVER_HOME/tmp}
 CONTAINER="rstudio-4.4.2.sif"
 
@@ -25,25 +25,15 @@ RSTUDIO_HOME=$RSTUDIO_WORKSPACE/packages/rstudio
 RSTUDIO_CONFIG=$RSTUDIO_WORKSPACE/config
 mkdir -p $RSTUDIO_CONFIG
 
-# RStudio Server's rserver MUST run as root (it performs privilege operations
-# and spawns sessions as --server-user). Cloud runners may execute the job as a
-# non-root service account, so re-exec the server via sudo when we are not
-# already root. sudo -E preserves the pixi/PATH environment and working dir.
-SUDO=""
-if [ "$(id -u)" -ne 0 ]; then
-    if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
-        SUDO="sudo -E"
-    else
-        echo "WARNING: not running as root and sudo is unavailable; rserver requires root and will fail." >&2
-    fi
-fi
-
+# The runner runs as root (single root user, no non-root service account), so
+# rserver can start directly. RStudio Server's rserver MUST run as root.
+#
 # Run rserver in the foreground (--server-daemonize=0) so the studio job
 # stays "running" for its whole lifetime instead of the launcher exiting
 # immediately (rserver daemonizes by default). Replacing the shell with
 # singularity via exec lets the platform's SIGTERM reach the server directly
 # on terminate, instead of leaving an orphaned detached process behind.
-exec $SUDO singularity run \
+exec singularity run \
         --bind $RSTUDIO_WORKSPACE/run:/run \
         --bind $RSTUDIO_WORKSPACE/var-lib-rstudio-server:/var/lib/rstudio-server \
         --bind /sys/fs/cgroup/:/sys/fs/cgroup/:ro \
