@@ -25,15 +25,26 @@ RSTUDIO_HOME=$RSTUDIO_WORKSPACE/packages/rstudio
 RSTUDIO_CONFIG=$RSTUDIO_WORKSPACE/config
 mkdir -p $RSTUDIO_CONFIG
 
-# The runner runs as root (single root user, no non-root service account), so
-# rserver can start directly. RStudio Server's rserver MUST run as root.
-#
+# RStudio Server's rserver MUST run as root. The deployment is expected to run
+# the runner as root, but if it ever runs as a non-root account (e.g. `river`)
+# we re-exec via sudo so the server can start. sudo -E preserves the pixi/PATH
+# environment and working directory; sudo -n avoids hanging on a password prompt.
+SUDO=""
+if [ "$(id -u)" -ne 0 ]; then
+    if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+        SUDO="sudo -E"
+    else
+        echo "ERROR: rserver requires root, but the runner is not root and sudo is unavailable." >&2
+        exit 1
+    fi
+fi
+
 # Run rserver in the foreground (--server-daemonize=0) so the studio job
 # stays "running" for its whole lifetime instead of the launcher exiting
 # immediately (rserver daemonizes by default). Replacing the shell with
 # singularity via exec lets the platform's SIGTERM reach the server directly
 # on terminate, instead of leaving an orphaned detached process behind.
-exec singularity run \
+exec $SUDO singularity run \
         --bind $RSTUDIO_WORKSPACE/run:/run \
         --bind $RSTUDIO_WORKSPACE/var-lib-rstudio-server:/var/lib/rstudio-server \
         --bind /sys/fs/cgroup/:/sys/fs/cgroup/:ro \
