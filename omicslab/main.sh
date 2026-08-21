@@ -2,7 +2,8 @@
 set -euo pipefail
 
 USER=$(whoami)
-DOCKER_IMAGE="docker.io/rocker/rstudio:4.4.2"
+R_VERSION="${r_version:-4.4.2}"
+DOCKER_IMAGE="docker.io/rocker/rstudio:${R_VERSION}"
 CONTAINER_NAME="rstudio-server"
 
 # Absolute path to this tool directory (analysis/omicslab)

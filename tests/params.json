@@ -11,6 +11,7 @@
   "AWS_SECRET_ACCESS_KEY": "invalid",
   "AWS_REGION_NAME": "invalid",
   "AWS_ENDPOINT_URL": "invalid",
+  "r_version": "4.4.2",
   "image": "",
   "snapshot": false,
   "outdir": "data/images/podman/rstudio",

@@ -5,6 +5,12 @@
       "type": "object",
       "description": "Configuration for RStudio Server container",
       "properties": {
+        "r_version": {
+          "type": "string",
+          "default": "4.4.2",
+          "description": "R version for the RStudio Server container (e.g. 4.4.2, 4.3.3).",
+          "fa_icon": "fas fa-code-branch"
+        },
         "image": {
           "type": "string",
           "default": "",
