@@ -11,4 +11,4 @@ CONTAINERS_CONF = "${CONDA_PREFIX}/etc/containers/containers.conf"
 
 [dependencies]
 podman = "<5"
-zstd
+zstd = ">=1.5.7,<2"
