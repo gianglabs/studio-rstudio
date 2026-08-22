@@ -26,13 +26,10 @@ else
     \"${PODMAN_ENV_DIR}/lib/cni\""
 fi
 
-# Ensure containers.conf exists so podman can find helper binaries.
-CONTAINERS_CONF="${HOME}/.config/containers/containers.conf"
-export CONTAINERS_CONF
-
-if [ ! -f "$CONTAINERS_CONF" ]; then
-    mkdir -p "$(dirname "$CONTAINERS_CONF")"
-    cat > "$CONTAINERS_CONF" <<EOF
+# Write containers.conf inside the pixi env (gitignored, no host leftovers).
+CONTAINERS_CONF="${PODMAN_ENV_DIR}/etc/containers/containers.conf"
+mkdir -p "$(dirname "$CONTAINERS_CONF")"
+cat > "$CONTAINERS_CONF" <<EOF
 [engine]
 helper_binaries_dir = [
     "${PODMAN_ENV_DIR}/libexec/podman",
@@ -42,8 +39,7 @@ helper_binaries_dir = [
 [network]
 network_backend = "${NET_BACKEND}"
 EOF
-    echo "Created containers.conf at: $CONTAINERS_CONF"
-fi
+export CONTAINERS_CONF
 
 # Ensure rootless policy and storage
 POLICY_FILE="${HOME}/.config/containers/policy.json"
@@ -124,6 +120,9 @@ trap _snapshot_cleanup EXIT
 # --- Run RStudio Server ---
 CONTAINER_R_LIBS="/home/rstudio/R/library"
 CONTAINER_PY_SITE="/home/rstudio/.local/lib/python3.12/site-packages"
+
+# Remove any existing container with the same name before starting.
+podman rm -f "$CONTAINER_NAME" 2>/dev/null || true
 
 podman run --rm -i \
     --name "$CONTAINER_NAME" \
