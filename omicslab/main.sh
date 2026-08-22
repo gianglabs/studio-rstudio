@@ -41,10 +41,27 @@ network_backend = "${NET_BACKEND}"
 EOF
 export CONTAINERS_CONF
 
-# Wrap podman so CONTAINERS_CONF is always applied, even if the parent
-# shell/launcher does not propagate exported env vars.
+# Write storage.conf inside the pixi env (gitignored, no host leftovers).
+# Use vfs when running on top of an overlayfs-backed filesystem (e.g. nested
+# containers); overlay otherwise. This avoids the
+# "'overlay' is not supported over overlayfs" error.
+CONTAINERS_STORAGE_CONF="${PODMAN_ENV_DIR}/etc/containers/storage.conf"
+STORAGE_DRIVER="overlay"
+if findmnt -n -o fstype / 2>/dev/null | grep -q overlayfs; then
+    STORAGE_DRIVER="vfs"
+fi
+cat > "$CONTAINERS_STORAGE_CONF" <<EOF
+[storage]
+driver = "${STORAGE_DRIVER}"
+runroot = "${PODMAN_ENV_DIR}/../run/containers/storage"
+graphroot = "${PODMAN_ENV_DIR}/../storage/containers"
+EOF
+export CONTAINERS_STORAGE_CONF
+
+# Wrap podman so CONTAINERS_CONF and CONTAINERS_STORAGE_CONF are always applied,
+# even if the parent shell/launcher does not propagate exported env vars.
 podman() {
-    env CONTAINERS_CONF="$CONTAINERS_CONF" "$(which podman)" "$@"
+    env CONTAINERS_CONF="$CONTAINERS_CONF" CONTAINERS_STORAGE_CONF="$CONTAINERS_STORAGE_CONF" "$(which podman)" "$@"
 }
 
 # Ensure rootless policy and storage
