@@ -41,6 +41,12 @@ network_backend = "${NET_BACKEND}"
 EOF
 export CONTAINERS_CONF
 
+# Wrap podman so CONTAINERS_CONF is always applied, even if the parent
+# shell/launcher does not propagate exported env vars.
+podman() {
+    env CONTAINERS_CONF="$CONTAINERS_CONF" "$(which podman)" "$@"
+}
+
 # Ensure rootless policy and storage
 POLICY_FILE="${HOME}/.config/containers/policy.json"
 if [ ! -f "$POLICY_FILE" ]; then
