@@ -47,7 +47,7 @@ export CONTAINERS_CONF
 # "'overlay' is not supported over overlayfs" error.
 CONTAINERS_STORAGE_CONF="${PODMAN_ENV_DIR}/etc/containers/storage.conf"
 STORAGE_DRIVER="overlay"
-if findmnt -n -o fstype / 2>/dev/null | grep -q overlayfs; then
+if findmnt -n -o fstype / 2>/dev/null | grep -qE "overlay"; then
     STORAGE_DRIVER="vfs"
 fi
 cat > "$CONTAINERS_STORAGE_CONF" <<EOF
