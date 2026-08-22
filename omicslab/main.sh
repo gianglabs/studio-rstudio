@@ -4,7 +4,7 @@ set -euo pipefail
 R_VERSION="${r_version:-4.4.2}"
 DOCKER_IMAGE="docker.io/rocker/rstudio:${R_VERSION}"
 CONTAINER_NAME="rstudio-server"
-PORT="${PORT:-8787}"
+PORT="${PORT:-6868}"
 
 TOOL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -166,13 +166,8 @@ podman rm -f "$CONTAINER_NAME" 2>/dev/null || true
 
 podman run --rm -i \
     --name "$CONTAINER_NAME" \
-    -p "$PORT:$PORT" \
-    -v "$RSTUDIO_WORKSPACE:/home/rstudio" \
-    "$DOCKER_IMAGE" \
-    bash -c "mkdir -p $CONTAINER_R_LIBS $CONTAINER_PY_SITE && \
-        exec rserver \
-            --www-address=0.0.0.0 \
-            --www-port=$PORT \
-            --server-working-dir /home/rstudio \
-            --auth-none=1 \
-            --server-daemonize=0"
+    -p "$PORT:8787" \
+    -v $HOME:$HOME \
+    -w $HOME \
+    -e DISABLE_AUTH=true \
+    $DOCKER_IMAGE
