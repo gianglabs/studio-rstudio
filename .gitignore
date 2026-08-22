@@ -2,3 +2,6 @@
 .pixi/*
 !.pixi/config.toml
 work
+
+# container images
+images/
