@@ -26,10 +26,27 @@ else
     \"${PODMAN_ENV_DIR}/lib/cni\""
 fi
 
-# Write containers.conf inside the pixi env (gitignored, no host leftovers).
+# Write containers.conf + storage.conf.
+# Podman always reads the per-user config at ~/.config/containers/ by default,
+# so we write there too. We ALSO point CONTAINERS_CONF / CONTAINERS_STORAGE_CONF
+# at the pixi-env copy so the config is applied regardless of how the launcher
+# invokes this script (env var honored or not).
+XDG_CONF_DIR="${HOME}/.config/containers"
+mkdir -p "$XDG_CONF_DIR" "${PODMAN_ENV_DIR}/etc/containers"
+
 CONTAINERS_CONF="${PODMAN_ENV_DIR}/etc/containers/containers.conf"
-mkdir -p "$(dirname "$CONTAINERS_CONF")"
-cat > "$CONTAINERS_CONF" <<EOF
+CONTAINERS_STORAGE_CONF="${PODMAN_ENV_DIR}/etc/containers/storage.conf"
+
+# Use vfs when running on top of an overlayfs-backed filesystem (e.g. nested
+# containers); overlay otherwise. This avoids the
+# "'overlay' is not supported over overlayfs" error.
+STORAGE_DRIVER="overlay"
+if findmnt -n -o fstype / 2>/dev/null | grep -qE "overlay"; then
+    STORAGE_DRIVER="vfs"
+fi
+
+write_containers_conf() {
+cat <<EOF
 [engine]
 helper_binaries_dir = [
     "${PODMAN_ENV_DIR}/libexec/podman",
@@ -39,23 +56,19 @@ helper_binaries_dir = [
 [network]
 network_backend = "${NET_BACKEND}"
 EOF
-export CONTAINERS_CONF
-
-# Write storage.conf inside the pixi env (gitignored, no host leftovers).
-# Use vfs when running on top of an overlayfs-backed filesystem (e.g. nested
-# containers); overlay otherwise. This avoids the
-# "'overlay' is not supported over overlayfs" error.
-CONTAINERS_STORAGE_CONF="${PODMAN_ENV_DIR}/etc/containers/storage.conf"
-STORAGE_DRIVER="overlay"
-if findmnt -n -o fstype / 2>/dev/null | grep -qE "overlay"; then
-    STORAGE_DRIVER="vfs"
-fi
-cat > "$CONTAINERS_STORAGE_CONF" <<EOF
+}
+write_storage_conf() {
+cat <<EOF
 [storage]
 driver = "${STORAGE_DRIVER}"
 runroot = "${PODMAN_ENV_DIR}/../run/containers/storage"
 graphroot = "${PODMAN_ENV_DIR}/../storage/containers"
 EOF
+}
+
+write_containers_conf | tee "$CONTAINERS_CONF" "$XDG_CONF_DIR/containers.conf" >/dev/null
+write_storage_conf     | tee "$CONTAINERS_STORAGE_CONF" "$XDG_CONF_DIR/storage.conf" >/dev/null
+export CONTAINERS_CONF
 export CONTAINERS_STORAGE_CONF
 
 # Wrap podman so CONTAINERS_CONF and CONTAINERS_STORAGE_CONF are always applied,
@@ -63,6 +76,10 @@ export CONTAINERS_STORAGE_CONF
 podman() {
     env CONTAINERS_CONF="$CONTAINERS_CONF" CONTAINERS_STORAGE_CONF="$CONTAINERS_STORAGE_CONF" "$(which podman)" "$@"
 }
+
+# Diagnostic: confirm podman is reading our config (helper path + storage driver).
+echo "--- podman effective config ---"
+podman info 2>&1 | grep -iE "helperBinariesDir|networkBackend|graphDriverName|driverName" || true
 
 # Ensure rootless policy and storage
 POLICY_FILE="${HOME}/.config/containers/policy.json"
